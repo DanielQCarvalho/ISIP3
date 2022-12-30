@@ -27,7 +27,10 @@ class App
 		InsertDriver,
 		VehicleOutdated,
 		VehicleTotal,
-
+		MostViagens,
+		NoViagensCondutores,
+		ViagensProprietario,
+		ViagensCondutores,
 	}
 	private static App __instance = null;
 	private String __connectionString;
@@ -40,10 +43,10 @@ class App
 		__dbMethods.put(Option.InsertDriver, new DbWorker() {public void doWork() {App.this.InsertDriver();}});
 		__dbMethods.put(Option.VehicleOutdated, new DbWorker() {public void doWork() {App.this.VehicleOutdated();}});
 		__dbMethods.put(Option.VehicleTotal, new DbWorker() {public void doWork() {App.this.VehicleTotal();}});
-		//__dbMethods.put(Option.RegisterDepartment, new DbWorker() {public void doWork() {App.this.RegisterDepartment();}});
-		//__dbMethods.put(Option.RegisterDepartment, new DbWorker() {public void doWork() {App.this.RegisterDepartment();}});
-		//__dbMethods.put(Option.RegisterDepartment, new DbWorker() {public void doWork() {App.this.RegisterDepartment();}});
-		//__dbMethods.put(Option.RegisterDepartment, new DbWorker() {public void doWork() {App.this.RegisterDepartment();}});
+		__dbMethods.put(Option.MostViagens, new DbWorker() {public void doWork() {App.this.MostViagens();}});
+		__dbMethods.put(Option.NoViagensCondutores, new DbWorker() {public void doWork() {App.this.NoViagensCondutores();}});
+		__dbMethods.put(Option.ViagensProprietario, new DbWorker() {public void doWork() {App.this.ViagensProprietario();}});
+		__dbMethods.put(Option.ViagensCondutores, new DbWorker() {public void doWork() {App.this.ViagensCondutores();}});
 
 	}
 	public static App getInstance() 
@@ -66,10 +69,10 @@ class App
 			System.out.println("2. Adicionar um novo condutor");
 			System.out.println("3. Colocar veiculo fora de serviço pela matrícula");
 			System.out.println("4. Calcular horas totais, kilómetros e o custo total de viagens feitas");
-			System.out.println("5. Register a novel department");
-			System.out.println("6. Register a novel department");
-			System.out.println("7. Register a novel department");
-			System.out.println("8. Register a novel department");
+			System.out.println("5. Clientes com mais viagens");
+			System.out.println("6. Condutores sem viagens");
+			System.out.println("7. Viagens realizadas pelos carros de um proprietário num dado ano");
+			System.out.println("8. Condutor com o maior número de viagens num dado ano");
 			System.out.print(">");
 			Scanner s = new Scanner(System.in);
 			int result = s.nextInt();
@@ -180,10 +183,10 @@ class App
 		try{
 			Connection conn = DriverManager.getConnection(__connectionString);
 			Statement stmt = conn.createStatement();
-			String carQuery = "select id , matricula , tipo , modelo , marca , count(id) as numerodeviagens , ano , proprietario" +
-					" from veiculo , viagem" +
+			String carQuery = "select id, matricula, tipo, modelo, marca, count(id) as numerodeviagens, ano, proprietario" +
+					" from veiculo, viagem" +
 					" where veiculo.matricula='"+matricula+"' and viagem.veiculo=id" +
-					" group by proprietario , ano , marca , modelo , tipo , matricula , id"; //Carro com n de viagens
+					" group by proprietario, ano, marca, modelo, tipo, matricula, id"; //Carro com n de viagens
 			return stmt.executeQuery(carQuery); //Guarda a row do carro
 		}catch (Exception e){
 			System.out.println(e);
@@ -196,7 +199,7 @@ class App
 		try{
 			Connection conn = DriverManager.getConnection(__connectionString);
 			Statement stmt = conn.createStatement();
-			String viagensQuery = "select hinicio , hfim , valfinal , latinicio , longinicio , latfim , longfim"+
+			String viagensQuery = "select hinicio, hfim, valfinal, latinicio, longinicio, latfim, longfim"+
 					" from viagem where viagem.veiculo='"+carDetails.getInt("id")+"'";
 			return stmt.executeQuery(viagensQuery);
 		}catch (Exception e){
@@ -255,6 +258,7 @@ class App
 		return input;
 	}
 
+	/*
 	private void printResults(ResultSet dr, String query) //Print na consola uma view de um dado ResultSet, usando a query de modo a extrair o nome das colunas.
 	{
 		String[] columnNames = query.split(" ");
@@ -279,13 +283,36 @@ class App
 			System.out.println(e);
 		}
 
-		/*Result must be similar like:
+		Result must be similar like:
 		ListDepartment()
 		dname   		dnumber		mgrssn      mgrstartdate            
 		-----------------------------------------------------
 		Research		5  			333445555 	1988-05-22            
 		Administration	4    		987654321	1995-01-01
-	 */ 
+	}
+	*/
+
+
+	private void printResultsBetter(ResultSet dr){
+		try {
+			int idx = 1;
+			while(dr.getMetaData().getColumnCount() != idx){
+				System.out.print(dr.getMetaData().getColumnLabel(idx)+" ");
+				idx++;
+			}
+			System.out.println();
+			System.out.println("-".repeat(dr.getMetaData().getColumnCount()*8));
+			idx = 1;
+			while(dr.next()){
+				for(var i = 1; i < dr.getMetaData().getColumnCount(); i++){
+					System.out.print(dr.getString(i)+" ");
+				}
+				System.out.println();
+				idx++;
+			}
+		}catch (Exception e){
+			System.out.println(e);
+		}
 	}
 
 	private void InsertPerson() {
@@ -331,8 +358,8 @@ class App
 			if(list.getObject("atrdisc") == "P"){
 				System.out.println("Esta pessoa nao pode ser condutor por ser proprietario");
 			}else{
-				query = "insert into condutor( idpessoa , ncconducao , dtnascimento )"+
-						"values (?,?,?)";
+				query = "insert into condutor(idpessoa, ncconducao, dtnascimento)"+
+						" values (?,?,?)";
 				PreparedStatement pstmt = conn.prepareStatement(query);
 				{
 					String cartadeConducao = readInput("Insira o numero da carta de conducao do condutor. (ex: cc-123456789)").toLowerCase();
@@ -377,7 +404,6 @@ class App
 	{
 		try {
 			Connection conn = DriverManager.getConnection(__connectionString);
-			Statement stmt2 = conn.createStatement();
 
 			String input = readInput("Insira a matrícula do veiculo que quer colocar fora de serviço (ex: CC13DD)");
 
@@ -440,9 +466,9 @@ class App
 			Connection conn = DriverManager.getConnection(__connectionString);
 			Statement stmt = conn.createStatement();
 
-			String cars = "select matricula , modelo , marca , ano from veiculo";
+			String cars = "select matricula, modelo, marca, ano from veiculo";
 			ResultSet carsList = stmt.executeQuery(cars);
-			printResults(carsList, cars); //Mostra a lista de carros
+			printResultsBetter(carsList);; //Mostra a lista de carros
 
 			String input = readInput("Insira a matricula do carro"); //Espera pelo input da matricula
 			ResultSet carDetails = getVehicleDetails(input); //Busca os detalhes do carro
@@ -466,14 +492,77 @@ class App
 		}
 	}
 
-	private void RegisterDepartment()
+	//2c
+	private void MostViagens()
+	{
+		try {
+			Connection conn = DriverManager.getConnection(__connectionString);
+			Statement stmt = conn.createStatement();
+
+			String input = readInput("Insira o ano que deseja consultar");
+
+
+
+			String query = "";
+			ResultSet list = stmt.executeQuery(query);
+			printResultsBetter(list);
+		}catch (Exception e){
+			System.out.println(e);
+		}
+	}
+
+	//2d
+	private void NoViagensCondutores()
 	{
 		try {
 			Connection conn = DriverManager.getConnection(__connectionString);
 			Statement stmt = conn.createStatement();
 
 			String query = "";
-			int list = stmt.executeUpdate(query); //Update retorna nada logo = 0
+			ResultSet list = stmt.executeQuery(query);
+			printResultsBetter(list);
+		}catch (Exception e){
+			System.out.println(e);
+		}
+	}
+
+	//3b
+	private void ViagensProprietario()
+	{
+		try {
+			Connection conn = DriverManager.getConnection(__connectionString);
+			Statement stmt = conn.createStatement();
+
+			String input = readInput("Insira o NIF ou o nome e apelido do proprietário");
+			String[] inputSplit = input.split(" ");
+
+			String query = "";
+			if(inputSplit.length == 2) {
+				query = ""; //Procura com base do nome e apelido
+			}else{
+				query = " "; //Procura com base no NIF
+			}
+
+			ResultSet list = stmt.executeQuery(query);
+			printResultsBetter(list);
+		}catch (Exception e){
+			System.out.println(e);
+		}
+	}
+
+	//3c
+	private void ViagensCondutores()
+	{
+		try {
+			Connection conn = DriverManager.getConnection(__connectionString);
+			Statement stmt = conn.createStatement();
+
+			String input = readInput("Insira o ano que deseja consultar");
+
+			String query = "";
+			ResultSet list = stmt.executeQuery(query);
+
+			printResultsBetter(list);
 		}catch (Exception e){
 			System.out.println(e);
 		}
