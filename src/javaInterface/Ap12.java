@@ -13,6 +13,8 @@ import java.time.LocalTime;
 import java.time.temporal.Temporal;
 import java.util.*;
 
+import static java.lang.Integer.parseInt;
+
 
 interface DbWorker 
 {
@@ -501,9 +503,19 @@ class App
 
 			String input = readInput("Insira o ano que deseja consultar");
 
-
-
-			String query = "";
+			String query = "select id,nproprio, apelido, viagensOn"+input+"\n" +
+					"from (select id, nproprio, apelido, count(dtviagem) as viagensOn"+input+"\n" +
+					"        from pessoa, (select periodoactivo.condutor,dtviagem\n" +
+					"            from periodoactivo, viagem\n" +
+					"            where viagem.condutor = periodoactivo.condutor AND dtviagem::text LIKE '"+input+"%') as date\n" +
+					"        where id=date.condutor\n" +
+					"    group by id) viagens\n" +
+					"where viagens.viagensOn"+input+" = (select max(viagensOn"+input+") from (select id, nproprio, apelido, count(dtviagem) as viagensOn"+input+"\n" +
+					"        from pessoa, (select periodoactivo.condutor, dtviagem\n" +
+					"            from periodoactivo, viagem\n" +
+					"            where viagem.condutor = periodoactivo.condutor AND dtviagem::text LIKE '"+input+"%') as date\n" +
+					"        where id = date.condutor\n" +
+					"    group by id) viagens)";
 			ResultSet list = stmt.executeQuery(query);
 			printResultsBetter(list);
 		}catch (Exception e){
@@ -533,14 +545,28 @@ class App
 			Connection conn = DriverManager.getConnection(__connectionString);
 			Statement stmt = conn.createStatement();
 
-			String input = readInput("Insira o NIF ou o nome e apelido do proprietário");
+			String input = readInput("Insira o NIF ou o nome e apelido do proprietário e o ano que deseja consultar");
 			String[] inputSplit = input.split(" ");
 
 			String query = "";
-			if(inputSplit.length == 2) {
-				query = ""; //Procura com base do nome e apelido
+			if(inputSplit.length == 3) {
+				query = "select veiculo , count(dtviagem) as NumeroDeViagens\n" +
+						"from viagem, (select veiculo.id,proprietario\n" +
+						"        from veiculo,(select id\n" +
+						"            from pessoa\n" +
+						"            where nif = '123456789123') as prop\n" +
+						"        where prop.id = proprietario) as v\n" +
+						"where dtviagem::text LIKE '"+inputSplit[2]+"%' and veiculo = v.proprietario\n" +
+						"group by veiculo;"; //Procura com base do nome e apelido
 			}else{
-				query = " "; //Procura com base no NIF
+				query = "select veiculo, count(dtviagem) as NumeroDeViagens\n" +
+						"from viagem, (select veiculo.id, proprietario\n" +
+						"        from veiculo,(select id\n" +
+						"            from pessoa\n" +
+						"            where nif = '"+inputSplit[0]+"') as prop\n" +
+						"        where prop.id = proprietario) as v\n" +
+						"where dtviagem::text LIKE '"+inputSplit[1]+"%' and veiculo = v.proprietario\n" +
+						"group by veiculo;"; //Procura com base no NIF
 			}
 
 			ResultSet list = stmt.executeQuery(query);
@@ -559,7 +585,19 @@ class App
 
 			String input = readInput("Insira o ano que deseja consultar");
 
-			String query = "";
+			String query = "select id, noident, nproprio, apelido, morada\n" +
+					"    from pessoa,\n" +
+					"        (select condutor, total\n" +
+					"        from (select condutor, sum(valfinal) as total\n" +
+					"            from viagem\n" +
+					"                where dtviagem::text LIKE '"+input+"%' and condutor = viagem.condutor\n" +
+					"            group by condutor) as totalmoney\n" +
+					"        where total=(select max(total) from (select condutor, sum(valfinal) as total\n" +
+					"            from viagem\n" +
+					"                where dtviagem::text LIKE '"+input+"%' and condutor = viagem.condutor\n" +
+					"            group by condutor) as totalmoney )) as maxTotal\n" +
+					"where pessoa.id = maxTotal.condutor\n" +
+					";";
 			ResultSet list = stmt.executeQuery(query);
 
 			printResultsBetter(list);
