@@ -1,6 +1,8 @@
 package javaInterface;
 
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Scanner;
 
@@ -25,17 +27,72 @@ public class Data {
     }
 
     //Verifica a quantidade de veiculos de um proprietario dado uma String.
-    private void checkVeiculos(String input){
+    public static void checkVeiculos(String url){
         try{
-            String[] inputSplit = input.split(" ");
-            String query = "select (select pes.id\n" +
-                    "from pessoa pes\n" +
-                    "where pes.nproprio = "+inputSplit[0]+" AND pes.apelido = "+inputSplit[1]+"), count(veiculo.id)\n" +
-                    "from proprietario p, veiculo\n" +
-                    "where p.idpessoa = veiculo.proprietario\n" +
-                    "group by p.idpessoa";
-            for(var i = 0; i < query.length(); i++){
-                System.out.println(inputSplit[i]);
+            LocalDateTime ld = LocalDateTime.now();
+            Integer year = ld.getYear();
+
+            Connection conn = DriverManager.getConnection(url);
+            Statement stmt = conn.createStatement();
+
+            String carListQuery = "select id, matricula, tipo, modelo, marca, ano, proprietario" +
+                    " from veiculo" +
+                    " where veiculo.ano<="+(year-5)+""+
+                    " group by proprietario, ano, marca, modelo, tipo, matricula, id";
+            ResultSet carList = stmt.executeQuery(carListQuery);
+            //printResultsBetter(carList);
+
+            while(carList.next()) {
+
+                //System.out.println(carList.getString("matricula"));
+                String matricula = carList.getString("matricula");
+
+                ResultSet carDetails = getVehicleDetails(matricula, url, false); //Guarda a row do carro para fora de serviço
+
+                if(carDetails.next()){
+
+                    String mat;
+                    int tipo;
+                    String mod;
+                    String marca;
+                    int ano;
+                    int prop;
+                    int[] totals;
+
+                    ResultSet viagemList = getViagemDetails(carDetails, url);
+
+                    mat = carDetails.getString("matricula");
+                    tipo = carDetails.getInt("tipo");
+                    mod = carDetails.getString("modelo");
+                    marca = carDetails.getString("marca");
+                    ano = carDetails.getInt("ano");
+                    prop = carDetails.getInt("proprietario");
+
+                    if (viagemList.next()) {
+                        totals = getTotalViagem(viagemList);
+                    }else{
+                        totals = new int[]{0, 0, 0, 0};
+                    }
+                    //printResults(list, query);
+
+                    carListQuery = "delete from veiculo v where v.matricula ='"+matricula+"'";
+                    stmt.executeUpdate(carListQuery); //Elimina a row do carro para fora de serviço
+
+                    createVehicleOldTable(url);
+
+                    String carQuery = "insert into veiculo_old(matricula, tipo, modelo, marca, kmpercorridos, nviagensrealizadas, ano, proprietario)" +
+                            " values (?,?,?,?,?,?,?,?)";
+                    PreparedStatement pstmt = conn.prepareStatement(carQuery);
+                    pstmt.setString(1, mat);
+                    pstmt.setInt(2, tipo);
+                    pstmt.setString(3, mod);
+                    pstmt.setString(4, marca);
+                    pstmt.setInt(5, totals[2]);
+                    pstmt.setInt(6, totals[3]);
+                    pstmt.setInt(7, ano);
+                    pstmt.setInt(8, prop);
+                    pstmt.executeUpdate();
+                }
             }
         }catch (Exception e){
             System.out.println(e);
@@ -43,13 +100,19 @@ public class Data {
     }
 
     //Retorna as seguintes caract. de um carro: id, matricula, tipo, nodelo, marca, nviagens, ano e proprietario.
-    private ResultSet getVehicleDetails(String matricula, String url){
+    private static ResultSet getVehicleDetails(String matricula, String url, Boolean isViagemImportant){
         try{
+            String[] bool;
+            if(isViagemImportant) {
+                bool = new String[]{"count(id) as numerodeviagens,", ", viagem", "and viagem.veiculo=id"};
+            }else{
+                bool = new String[]{"","",""};
+            }
             Connection conn = DriverManager.getConnection(url);
             Statement stmt = conn.createStatement();
-            String carQuery = "select id, matricula, tipo, modelo, marca, count(id) as numerodeviagens, ano, proprietario" +
-                    " from veiculo, viagem" +
-                    " where veiculo.matricula='"+matricula+"' and viagem.veiculo=id" +
+            String carQuery = "select id, matricula, tipo, modelo, marca, "+bool[0]+" ano, proprietario" +
+                    " from veiculo "+bool[1]+"" +
+                    " where veiculo.matricula='"+matricula+"' "+bool[2]+"" +
                     " group by proprietario, ano, marca, modelo, tipo, matricula, id"; //Carro com n de viagens
             return stmt.executeQuery(carQuery); //Guarda a row do carro
         }catch (Exception e){
@@ -59,7 +122,7 @@ public class Data {
     }
 
     //Retorna todas as viagens e as suas caracteristicas de um carro.
-    private ResultSet getViagemDetails(ResultSet carDetails, String url){
+    private static ResultSet getViagemDetails(ResultSet carDetails, String url){
         try{
             Connection conn = DriverManager.getConnection(url);
             Statement stmt = conn.createStatement();
@@ -73,7 +136,7 @@ public class Data {
     }
 
     //Retorna os minutos entre dois objetos Time, tendo em conta a mudança de dia entre o inicio e o fim.
-    private long getTimeDiff(Time inicio, Time fim){
+    private static long getTimeDiff(Time inicio, Time fim){
         Time time = new Time(24);
         int diff;
         //Achamos irrealista não considerar situações da hora de inicio ser maior que a hora de chegada, logo isto trata desta mesma situação.
@@ -88,7 +151,7 @@ public class Data {
     }
 
     //Retorna o total de horas, custo, distancia e o numero de viagens.
-    private int[] getTotalViagem(ResultSet viagemList){
+    private static int[] getTotalViagem(ResultSet viagemList){
         try{
             int hoursTotal = 0;
             int costTotal = 0;
@@ -122,7 +185,7 @@ public class Data {
         return input;
     }
 
-    private void printResultsBetter(ResultSet dr){
+    private static void printResultsBetter(ResultSet dr){
         try {
             int idx = 0;
             while(dr.getMetaData().getColumnCount() != idx){
@@ -208,7 +271,7 @@ public class Data {
         }
     }
 
-    void createVehicleOldTable(String url){
+    static void createVehicleOldTable(String url){
         try {
             Connection conn = DriverManager.getConnection(url);
             Statement stmt = conn.createStatement();
@@ -245,7 +308,7 @@ public class Data {
 
             String input = readInput("Insira a matrícula do veiculo que quer colocar fora de serviço (ex: CC13DD)");
 
-            ResultSet carDetails = getVehicleDetails(input, url); //Guarda a row do carro para fora de serviço
+            ResultSet carDetails = getVehicleDetails(input, url, true); //Guarda a row do carro para fora de serviço
 
             String mat;
             int tipo;
@@ -275,8 +338,8 @@ public class Data {
 
             //printResults(list, query);
 
-            //query = "delete from veiculo v where v.matricula ='"+input+"'";
-            //stmt.executeUpdate(query); //Elimina a row do carro para fora de serviço
+            carListQuery = "delete from veiculo v where v.matricula ='"+input+"'";
+            stmt.executeUpdate(carListQuery); //Elimina a row do carro para fora de serviço
 
             createVehicleOldTable(url);
 
@@ -309,7 +372,7 @@ public class Data {
             printResultsBetter(carsList);; //Mostra a lista de carros
 
             String input = readInput("Insira a matricula do carro"); //Espera pelo input da matricula
-            ResultSet carDetails = getVehicleDetails(input, url); //Busca os detalhes do carro
+            ResultSet carDetails = getVehicleDetails(input, url, true); //Busca os detalhes do carro
             int[] total = {0,0,0,0};
 
             if(carDetails.next()){

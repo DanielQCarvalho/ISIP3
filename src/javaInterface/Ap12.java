@@ -152,6 +152,7 @@ public class Ap12
 	public static void main(String[] args) throws SQLException,Exception
 	{
 		String url = "jdbc:postgresql://10.62.73.73:5432/?user=mp29&password=mp29&ssl=false";
+		Data.checkVeiculos(url);
 		App.getInstance().setConnectionString(url);
 		App.getInstance().Run();
 	}
