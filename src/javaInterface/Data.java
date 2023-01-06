@@ -1,7 +1,6 @@
 package javaInterface;
 
 import java.sql.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Scanner;
@@ -175,7 +174,7 @@ public class Data {
     }
 
     //Recebe uma String para mostrar na consola, e espera por um input do utilizador para retornar.
-    private String readInput(String comment){
+    private static String readInput(String comment){
         Scanner sc = new Scanner(System.in);
         String input;
         do{
@@ -252,7 +251,7 @@ public class Data {
             list = stmt.executeQuery(query);
             list.next();
             if(list.getObject("atrdisc") == "P"){
-                System.out.println("Esta pessoa nao pode ser condutor por ser proprietario");
+                System.out.println("Esta pessoa nao pode ser condutor por ser proprietario.");
             }else{
                 query = "insert into condutor(idpessoa, ncconducao, dtnascimento)"+
                         " values (?,?,?)";
@@ -264,7 +263,7 @@ public class Data {
                 pstmt.setString(2, cartadeConducao );
                 pstmt.setDate(3, Date.valueOf(dataDeNascimento));
                 pstmt.executeUpdate();
-                System.out.println("Condutor adicionado");
+                System.out.println("Condutor adicionado.");
             }
         }catch (Exception e){
             System.out.println(e);
@@ -306,7 +305,7 @@ public class Data {
 
             printResultsBetter(carList);
 
-            String input = readInput("Insira a matrícula do veiculo que quer colocar fora de serviço (ex: CC13DD)");
+            String input = readInput("Insira a matrícula do veiculo que quer colocar fora de serviço. (ex: CC13DD)");
 
             ResultSet carDetails = getVehicleDetails(input, url, true); //Guarda a row do carro para fora de serviço
 
@@ -333,7 +332,7 @@ public class Data {
                     totals = getTotalViagem(viagemList);
                 }
             }else{
-                throw new Exception("A dada matrícula não existe na base de dados");
+                throw new Exception("A dada matrícula não existe na base de dados.");
             }
 
             //printResults(list, query);
@@ -369,10 +368,10 @@ public class Data {
 
             String cars = "select matricula, modelo, marca, ano from veiculo";
             ResultSet carsList = stmt.executeQuery(cars);
-            printResultsBetter(carsList);; //Mostra a lista de carros
+            printResultsBetter(carsList); //Mostra a lista de carros
 
-            String input = readInput("Insira a matricula do carro"); //Espera pelo input da matricula
-            ResultSet carDetails = getVehicleDetails(input, url, true); //Busca os detalhes do carro
+            String input = readInput("Insira a matricula do carro."); //Espera pelo input da matricula
+            ResultSet carDetails = getVehicleDetails(input, url, false); //Busca os detalhes do carro
             int[] total = {0,0,0,0};
 
             if(carDetails.next()){
@@ -386,7 +385,7 @@ public class Data {
                 System.out.println("Kilómetros totais "+total[2]);
                 System.out.println("Custo total "+total[1]);
             }else{
-                throw new Exception("O carro não existe na base de dados");
+                throw new Exception("O carro não existe na base de dados.");
             }
         }catch (Exception e){
             System.out.println(e);
@@ -400,7 +399,7 @@ public class Data {
             Connection conn = DriverManager.getConnection(url);
             Statement stmt = conn.createStatement();
 
-            String input = readInput("Insira o ano que deseja consultar");
+            String input = readInput("Insira o ano que deseja consultar.");
 
             String query = "select id,nproprio, apelido, viagensOn"+input+"\n" +
                     "from (select id, nproprio, apelido, count(dtviagem) as viagensOn"+input+"\n" +
@@ -454,11 +453,11 @@ public class Data {
             Connection conn = DriverManager.getConnection(url);
             Statement stmt = conn.createStatement();
 
-            String input = readInput("Insira o NIF ou o nome e apelido do proprietário e o ano que deseja consultar");
+            String input = readInput("Insira o NIF ou o nome e apelido do proprietário e o ano que deseja consultar.");
             String[] inputSplit = input.split(" ");
 
             String query = "";
-            if(inputSplit.length == 3) {
+            if(inputSplit.length == 3 && inputSplit[0].matches("[a-zA-Z]+") && inputSplit[1].matches("[a-zA-Z]+") && inputSplit[2].matches("[0-9]+")) {
                 //Procura com base do nome e apelido
                 query = "select veiculo , count(dtviagem) as NumeroDeViagens\n" +
                         " from viagem, (select veiculo.id,proprietario\n" +
@@ -469,17 +468,20 @@ public class Data {
                         " where dtviagem::text LIKE '"+inputSplit[2]+"%' and veiculo = v.id\n" +
                         " group by veiculo;";
             }else{
-                //Procura com base no NIF
-                query = "select veiculo, count(dtviagem) as NumeroDeViagens"+
-                " from viagem, (select veiculo.id, proprietario"+
-                " from veiculo,(select id"+
-                " from pessoa"+
-                " where nif = '"+inputSplit[0]+"') as prop"+
-                " where proprietario=prop.id) as v"+
-                " where dtviagem::text LIKE '"+inputSplit[1]+"%' and veiculo = v.id"+
-                " group by veiculo;";
+                if(inputSplit[0].matches("[0-9]+") && inputSplit[1].matches("[0-9]+")){
+                    //Procura com base no NIF
+                    query = "select veiculo, count(dtviagem) as NumeroDeViagens"+
+                            " from viagem, (select veiculo.id, proprietario"+
+                            " from veiculo,(select id"+
+                            " from pessoa"+
+                            " where nif = '"+inputSplit[0]+"') as prop"+
+                            " where proprietario=prop.id) as v"+
+                            " where dtviagem::text LIKE '"+inputSplit[1]+"%' and veiculo = v.id"+
+                            " group by veiculo;";
+                }else{
+                    throw new Exception("Um ou mais argumentos fornecidos sao invalidos.");
+                }
             }
-
             ResultSet list = stmt.executeQuery(query);
             printResultsBetter(list);
         }catch (Exception e){
@@ -494,7 +496,7 @@ public class Data {
             Connection conn = DriverManager.getConnection(url);
             Statement stmt = conn.createStatement();
 
-            String input = readInput("Insira o ano que deseja consultar");
+            String input = readInput("Insira o ano que deseja consultar.");
 
             String query = "select id, noident, nproprio, apelido, morada\n" +
                     "    from pessoa,\n" +
