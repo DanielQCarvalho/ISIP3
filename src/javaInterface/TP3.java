@@ -4,13 +4,7 @@ Introdução a Sistemas de Informação
 MP,ND, 2014-2022
 */
 
-import org.postgresql.jdbc.SslMode;
-
 import java.sql.*;
-import java.sql.Date;
-import java.time.Duration;
-import java.time.LocalTime;
-import java.time.temporal.Temporal;
 import java.util.*;
 
 import static java.lang.Integer.parseInt;
@@ -147,12 +141,11 @@ class App
 }
 
 
-public class Ap12
+public class TP3
 {
 	public static void main(String[] args) throws SQLException,Exception
 	{
 		String url = "jdbc:postgresql://10.62.73.73:5432/?user=mp29&password=mp29&ssl=false";
-		Data.checkVeiculos(url);
 		App.getInstance().setConnectionString(url);
 		App.getInstance().Run();
 	}
